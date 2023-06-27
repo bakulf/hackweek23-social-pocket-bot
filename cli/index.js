@@ -37,6 +37,7 @@ try {
     body: appFormData
   }).then(r => r.json());
 } catch (e) {
+  console.log(e);
   console.log(`Error - ${e.message}`);
   process.exit(1);
 }
