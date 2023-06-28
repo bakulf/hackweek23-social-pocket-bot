@@ -34,6 +34,11 @@ class Session {
     this._sync();
   }
 
+  forget(username) {
+    delete this._sessions[username];
+    this._sync();
+  }
+
   _sync() {
     fs.writeFileSync(env.SESSION_FILE, JSON.stringify(this._sessions));
   }

@@ -5,6 +5,7 @@
 import {
   stripHtml
 } from "string-strip-html";
+import fetch from 'node-fetch';
 
 import env from './env.js';
 import session from './session.js';
@@ -16,7 +17,7 @@ const commands = {
     if (!session.exists(status.account.username)) {
       return await mastodon.post({
         in_reply_to_id: status.id,
-        status: 'You are not logged in.',
+        status: `@${status.account.username}, you are not logged in.`,
         visibility: "direct",
       });
     }
@@ -24,7 +25,7 @@ const commands = {
     session.forget(status.account.username);
     return await mastodon.post({
       in_reply_to_id: status.id,
-      status: 'Done. See you soon!',
+      status: `@${status.account.username} done! See you soon!`,
       visibility: "direct",
     });
   },
@@ -33,7 +34,7 @@ const commands = {
     if (session.exists(status.account.username)) {
       return await mastodon.post({
         in_reply_to_id: status.id,
-        status: 'You are already logged in.',
+        status: `@${status.account.username}, you are already logged in.`,
         visibility: "direct",
       });
     }
@@ -97,14 +98,14 @@ const commands = {
 
       return await mastodon.post({
         in_reply_to_id: status.id,
-        status: `Great! You are now authenticated!!`,
+        status: `Great @${status.account.username}! You are now authenticated!!`,
         visibility: "direct",
       });
     });
 
     return await mastodon.post({
       in_reply_to_id: status.id,
-      status: `Sure! Can you please open this link: ${authorizeURL} ? See you soon!`,
+      status: `Sure @${status.account.username}! Can you please open this link: ${authorizeURL} ? See you soon!`,
       visibility: "direct",
     });
   },
@@ -147,7 +148,7 @@ const commands = {
     for (let collection of data.data.getCollections.collections) {
       await mastodon.post({
         in_reply_to_id: status.id,
-        status: `Title: ${collection.title}\nURL: ${collection.shortUrl}`,
+        status: `@${status.account.username} - Title: ${collection.title}\nURL: ${collection.shortUrl}`,
         visibility: "direct",
       });
     }
@@ -157,7 +158,7 @@ const commands = {
     if (!session.exists(status.account.username)) {
       return await mastodon.post({
         in_reply_to_id: status.id,
-        status: 'You are not logged in yet.',
+        status: `Sorry @${status.account.username}, you are not logged in yet.`,
         visibility: "direct",
       });
     }
@@ -165,7 +166,7 @@ const commands = {
     if (!msg[1]) {
       return await mastodon.post({
         in_reply_to_id: status.id,
-        status: 'Please, provide a URL',
+        status: `Please @${status.account.username}, provide a URL`,
         visibility: "direct",
       });
     }
@@ -195,7 +196,7 @@ const commands = {
 
     return await mastodon.post({
       in_reply_to_id: status.id,
-      status: `Ok! Done.`,
+      status: `Ok @${status.account.username}! Done.`,
       visibility: "direct",
     });
   },
@@ -204,13 +205,12 @@ const commands = {
     if (!session.exists(status.account.username)) {
       return await mastodon.post({
         in_reply_to_id: status.id,
-        status: 'You are not logged in yet.',
+        status: `Sorry @${status.account.username}, you are not logged in yet.`,
         visibility: "direct",
       });
     }
 
     const count = parseInt(msg[1], 10) || 10;
-    console.log(count);
 
     let appData;
     try {
@@ -236,7 +236,7 @@ const commands = {
     }
 
     for (let id of Object.keys(appData.list)) {
-      const content = `URL: ${appData.list[id].resolved_url}\nTitle: ${appData.list[id].excerpt}`;
+      const content = `@${status.account.username} - URL: ${appData.list[id].resolved_url}\nTitle: ${appData.list[id].excerpt}`;
 
       await mastodon.post({
         in_reply_to_id: status.id,
@@ -249,7 +249,7 @@ const commands = {
   "help": async (msg, status) => {
     return await mastodon.post({
       in_reply_to_id: status.id,
-      status: `The supported commands are: ${Object.keys(commands).join(', ')}`,
+      status: `@${status.account.username}, the supported commands are: ${Object.keys(commands).join(', ')}`,
       visibility: "direct",
     });
   },
@@ -257,7 +257,7 @@ const commands = {
 
 class Conversation {
   async add(data) {
-    if (!data.last_status || !data.last_status.account || data.last_status.application) return;
+    if (!data.last_status || !data.last_status.account || (data.last_status.application && data.last_status.application.name === 'PocketBot')) return;
 
     // First message.
     if (!data.last_status.in_reply_to_id) {
@@ -270,8 +270,11 @@ class Conversation {
       });
     }
 
-
     const msg = stripHtml(data.last_status.content || data.last_status.text).result.trim().split(' ');
+    if (msg[0]?.startsWith('@')) {
+      msg.splice(0, 1);
+    }
+
     if (msg[0] in commands) {
       return await commands[msg[0]](msg, data.last_status);
     }
